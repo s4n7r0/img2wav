@@ -5,6 +5,17 @@ Supported formats: 16-bit .wav, 24-bit .wav, .png, .jpg, .jpeg, .gif, .bmp, .web
 
 Converting a 16bit wav produces an image in RGB565 mode
 
+### Dependencies
+[Hound][https://crates.io/crates/hound]
+[image][https://crates.io/crates/image]
+
+### Building
+```
+git clone https://github.com/s4n7r0/img2wav/
+cd img2wav
+cargo build
+```
+
 ## Usage
 ```
 Usage: filename [INPUT] [OPTIONS]
