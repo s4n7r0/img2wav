@@ -1,0 +1,7 @@
+/target
+/src/test
+/src/*.jpg
+/src/*.png
+/src/*.wav
+/src/*.bak
+/src/*.bmp

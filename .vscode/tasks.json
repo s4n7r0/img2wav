@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "rust: cargo run",
+			"type": "shell",
+			"command": "cargo",
+			"problemMatcher": [
+				"$rustc"
+			],
+			"args": [
+				"run",
+				"${file}",
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+	]
+}
