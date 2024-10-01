@@ -1,4 +1,4 @@
-use std::{env::args, fs::File, i16, io::{Read, Write}, usize, vec};
+use std::{env::args, fs::File, i16, i32, io::{Read, Write}, usize, vec};
 
 use hound::{self, WavReader};
 use image::{self, ImageReader};
@@ -25,6 +25,7 @@ fn show_help(path: &String) {
     println!("If converting from image to wav:");
     println!("      -s, --stereo                          Outputs audio with 2 channels");
     println!("      -g, --grayscale                       Interpretes image as if it was in Grayscale");
+    println!("      -sr, --sample-rate                    Outputs audio in specified sample rate");
     println!("      -16                                   Outputs audio in 16bit, assuming that image is in RGB565 mode");
     println!("");
 }
@@ -196,14 +197,12 @@ fn wav_to_img(path: &String, args: &Args) {
     wav_as_file.read_to_end(&mut wav_bytes).unwrap();
     println!("wav bytes: {}", wav_bytes.len());
     
-    let mut wav = WavReader::open(&path).expect("Failed to open file");
-    let mut wav_length: f32 = (wav.duration() - 0x50) as f32;
-    // subtracting 0x50 cause wav.duration() returns the size of the WHOLE file and not the data chunk, 
-    // which leads to invalid resolutions of images
+    let mut wav = WavReader::open(&path).unwrap();
+    let mut wav_length: f32 = wav.duration() as f32;
 
-    println!("wav length: {}", wav_bytes.len());
+    println!("wav length: {}", wav_length);
     
-    if args.grayscale { wav_length *= 3 as f32; }
+    if args.grayscale { wav_length *= (3 - (wav.spec().bits_per_sample == 16) as u32) as f32; }
     wav_length *= wav.spec().channels as f32;
     
     let img_dimensions = wav_length.sqrt().ceil() as u32;
@@ -227,11 +226,8 @@ fn wav_to_img(path: &String, args: &Args) {
     let img_size = img_dimensions.0 * img_dimensions.1; 
     if img_size < wav.duration() {println!("Dimensions too small! Pic: {} < Samples: {}", img_size, wav.duration()); panic!();};
 
-    // if args.grayscale {img_dimensions.0 *= 3; img_dimensions.1 *= 3;};
     let mut img = image::RgbImage::new(img_dimensions.0, img_dimensions.1);
-    
-    // let mut img_gray = image::GrayImage::new(img_dimensions.0*3, img_dimensions.1*3);
-    
+        
     println!("pic res: {} x {}", img_dimensions.0, img_dimensions.1);
 
     let mut sample_bytes: [u8; 4];
@@ -263,7 +259,7 @@ fn wav_to_img(path: &String, args: &Args) {
                     assert_eq!(sample_bytes[3], 0);
                 }
         }
-        _ => { println!("Unsupported bits per sample!"); return;}
+        _ => { println!("Unsupported bits per sample!"); panic!();}
     }
 
     let mut sample_iterator = sample_array.iter().peekable();
@@ -286,7 +282,6 @@ fn wav_to_img(path: &String, args: &Args) {
             if wav.spec().bits_per_sample == 16 && index_gray >= 2 {index_gray = 0; sample_iterator.next();};
 
             if index_gray >= 3 {index_gray = 0; sample_iterator.next();};
-            // println!("{}", rgb_array[0]);
         }
         img.save(&args.output).expect("Cant save file!")
     } else {
@@ -305,7 +300,7 @@ fn wav_to_img(path: &String, args: &Args) {
                 //         rrrrrggg   gggbbbbb      
                 value.swap(0, 1); //incorrect otherwise idk why but whatever
                 let mut value_r = value[0] >> 3;
-                let mut value_g: u8 = (value[0].rotate_right(3) >> 5) * 2_u8.pow(3) + value[1] >> 5;
+                let mut value_g = ((value[0].rotate_right(3) >> 5) << 3) + (value[1] >> 5);
                 let mut value_b = value[1].rotate_right(5) >> 3;
                 value_r <<= 3; value_g <<= 2; value_b <<= 3; // to get colors from 0 - 255
 
@@ -374,17 +369,27 @@ fn img_to_wav(img: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, path: &String, a
     }
 
     if args.bit16 {
-        for pixel in &pixel_array {
-            let (mut r, mut g, mut b) = (pixel[0], pixel[1], pixel[2]);
-            r >>= 3; g >>= 2; b >>= 3;
-            let mut sample_to_write: u16 = r as u16;
-            sample_to_write <<= 6;
-            sample_to_write += g as u16;
-            sample_to_write <<= 5;
-            sample_to_write += b as u16;
+        if args.grayscale {
+            for pixel in &pixel_array {
+                let sample_to_write: u16 = ((pixel[1] as u16) << 8) + pixel[0] as u16;
             
-            let sample_to_write: i32 = sample_to_write as i32 + i16::MIN as i32; //turn it into a value between 24bit integer MIN and MAX 
-            wav.write_sample(sample_to_write).expect("Cant write sample");
+                let sample_to_write: i16 = (sample_to_write as i32 + i16::MIN as i32) as i16; //turn it into a value between 16bit integer MIN and MAX 
+                wav.write_sample(sample_to_write).expect("Cant write sample");
+            }
+        } else {
+            for pixel in &pixel_array {
+                let (mut r, mut g, mut b) = (pixel[0], pixel[1], pixel[2]);
+                r >>= 3; g >>= 2; b >>= 3;
+                let mut sample_to_write: u16 = r as u16;
+                sample_to_write <<= 6;
+                sample_to_write += g as u16;
+                sample_to_write <<= 5;
+                sample_to_write += b as u16;
+                
+                let sample_to_write: i32 = sample_to_write as i32 + i16::MIN as i32; //turn it into a value between 16bit integer MIN and MAX 
+                wav.write_sample(sample_to_write).expect("Cant write sample");
+            }
+
         }
     } else {
         for pixel in &pixel_array {
