@@ -12,7 +12,7 @@ fn show_help(path: &String) {
     println!("");
     println!("Supported formats: 16-bit .wav, 24-bit .wav, .png, .jpg, .jpeg, .gif, .bmp, .webp");
     println!("");
-    println!("Converting a 16bit wav produces an image in RGB565 mode");
+    println!("Converting a 16bit wav produces an image ign RGB565 mode");
     println!("");
     println!("Options:");
     println!("      -i, --input  [PATH]                   Input file");
@@ -31,8 +31,16 @@ fn show_help(path: &String) {
 
 fn process_path(args_struct: &mut Args, path: &String) -> bool {
 
-    if File::open(path).is_err() {println!("Failed to open file!"); return false};
+    if File::open(path).is_err() {
+        println!("Failed to open file!"); 
+        let file = File::options().write(true).open(path);
+        if file.is_err() {
+            if File::create_new(path).is_err() {println!("file can't be created or written to"); return false};
+            println!("file created");
+        };
+    };
     
+
     if args_struct.input.is_empty() {
         match path.split('.').last().unwrap() {
             //TODO: find a way to support all images available in the image crate
@@ -42,17 +50,12 @@ fn process_path(args_struct: &mut Args, path: &String) -> bool {
         }
     }
 
-    let file = File::options().write(true).open(path);
-    if file.is_err() {
-        if File::create_new(path).is_err() {println!("file can't be created or written to"); return false};
-        println!("file created");
-    };
     
-    println!("input: {}", path);
+    println!("path: {}", path);
     true
 }
 
-fn process_args(args_struct: &mut Args) {
+fn process_args(args_struct: &mut Args) -> bool {
     let args: Vec<String> = args().collect();
 
     let mut arg = args.iter().peekable();
@@ -61,7 +64,7 @@ fn process_args(args_struct: &mut Args) {
 
     arg.next();
 
-    if arg.len() == 0 {show_help(&file_path); return;};
+    if arg.len() == 0 {show_help(&file_path); return false;};
     
     loop {
         let current_arg = match arg.peek() {
@@ -77,14 +80,14 @@ fn process_args(args_struct: &mut Args) {
                 args_struct.is_img = true;
                 args_struct.input = current_arg.to_string();
                 args_struct.output = current_arg.split_at(current_arg.rfind('.').unwrap()).0.to_string() + ".wav";
-                break;
+                return true;
             },
             "wav" => {
                 println!("file is a wav"); 
                 args_struct.is_wav = true;
                 args_struct.input = current_arg.to_string();
                 args_struct.output = current_arg.split_at(current_arg.rfind('.').unwrap()).0.to_string() + ".png";
-                break;
+                return true;
             },
             _ => ()
         }
@@ -95,9 +98,10 @@ fn process_args(args_struct: &mut Args) {
 
                 let path = match arg.next() {
                     Some(x) => x,
-                    None => {println!("-i requires an input file!"); return;}
+                    None => {println!("-i requires an input file!"); return false;}
                 };
-                if !process_path(args_struct, path) {return;};
+
+                if !process_path(args_struct, path) {return false;};
                 args_struct.input = path.to_string();
             },
             "-o" | "--output" => {
@@ -105,10 +109,10 @@ fn process_args(args_struct: &mut Args) {
                 
                 let path = match arg.next() {
                     Some(x) => x,
-                    None => {println!("-o requires an output path!"); return;}
+                    None => {println!("-o requires an output path!"); return false;}
                 };
                 
-                if !process_path(args_struct, path) {return;};
+                if !process_path(args_struct, path) {return false;};
                 args_struct.output = path.to_string();
             },
             "-d" | "--dimensions"  => {
@@ -116,17 +120,17 @@ fn process_args(args_struct: &mut Args) {
 
                 let res = match arg.next() {
                     Some(x) => x,
-                    None => {println!("-d requires a resolution in <width>x<height> format!"); return;}
+                    None => {println!("-d requires a resolution in <width>x<height> format!"); return false;}
                 };
 
                 let index = res.find('x').unwrap();
                 let (x, mut y) = res.split_at(index);
                 y = y.trim_start_matches('x');
                 
-                args_struct.dimensions[0] = x.trim().parse().unwrap();
-                args_struct.dimensions[1] = y.trim().parse().unwrap();
+                args_struct.dimensions[0] = x.trim().parse().expect("x is not a number!");
+                args_struct.dimensions[1] = y.trim().parse().expect("y is not a number!");
 
-                if args_struct.dimensions[0] <= 0 || args_struct.dimensions[1] <= 0 {println!("Invalid dimensions!"); return;}
+                if args_struct.dimensions[0] <= 0 || args_struct.dimensions[1] <= 0 {println!("Invalid dimensions!"); return false;}
 
                 println!("{}x{}", x, y);
 
@@ -143,12 +147,24 @@ fn process_args(args_struct: &mut Args) {
                 println!("using rotate");
                 
                 let value: usize = match arg.next() {
-                    Some(x) => x.trim().parse().expect("Invalid digit!"),
-                    None => {println!("-r requires a number!"); return;}
+                    Some(x) => x.trim().parse().expect("Invalid number!"),
+                    None => {println!("-r requires a number!"); return false;}
                 };
                 let value = value.clamp(0, 3);
 
                 args_struct.rotate = value;
+            }
+            "-sr" | "--sample-rate" => {
+                println!("using sample rate");
+                
+                let value: u32 = match arg.next() {
+                    Some(x) => x.trim().parse().expect("Invalid number!"),
+                    None => {println!("-s requires a number!"); return false;}
+                };
+
+                if value <= 0 || value > 192000 {println!("Sample rate not supported!"); return false;}
+
+                args_struct.samplerate = value;
             }
             "-16" => {
                 println!("output as a 16 bit wav");
@@ -160,13 +176,14 @@ fn process_args(args_struct: &mut Args) {
                 if !args_struct.input.is_empty() {continue};
 
                 show_help(&file_path);
-                return;
+                return false;
             }
             _ => {
                 println!("Unrecognized argument: {}", current_arg);
             }
         }
     }
+    true
 }
 
 fn wav_to_img(path: &String, args: &Args) {
@@ -317,7 +334,7 @@ fn img_to_wav(img: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, path: &String, a
 
     let wav = hound::WavSpec {
         channels: 1 + args.stereo as u16,
-        sample_rate: 44100,
+        sample_rate: args.samplerate,
         bits_per_sample: 24 - (8 * args.bit16 as u16),
         sample_format: hound::SampleFormat::Int
     };
@@ -443,6 +460,7 @@ struct Args {
     dimensions: [i32; 2],
     rotate: usize,
     bit16: bool,
+    samplerate: u32,
 
     is_wav: bool,
     is_img: bool
@@ -457,11 +475,12 @@ fn main() {
         dimensions: [0, 0],
         rotate: 0,
         bit16: false,
+        samplerate: 44100,
         is_wav: false, 
         is_img: false,
     };
 
-    process_args(&mut args_struct);
+    if !process_args(&mut args_struct) {return;};
 
     if args_struct.input.is_empty() {println!("No input file provided"); return};
     if args_struct.output.is_empty() {println!("No output file provided"); return};
