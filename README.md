@@ -7,6 +7,8 @@ Supported formats: 16-bit .wav, 24-bit .wav, .png, .jpg, .jpeg, .gif, .bmp, .web
 
 Converting a 16bit wav produces an image in RGB565 mode
 
+Adds a custom header "img2wav " to wav files which specifies image resolution (this might get removed if file is modified)
+
 ### Dependencies
 [Hound](https://crates.io/crates/hound)
 
@@ -35,5 +37,6 @@ If converting from wav to image:
 If converting from image to wav
       -s, --stereo                          Outputs audio with 2 channels
       -g, --grayscale                       Interpretes image as if it was in Grayscale
+      -sr, --sample-rate                    Outputs audio in specified sample rate
       -16                                   Outputs audio in 16bit, assuming that image is in RGB565 mode
 ```
