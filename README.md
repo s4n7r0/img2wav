@@ -6,6 +6,8 @@ Converts audio samples to RGB pixels and vice-versa
 Supported formats: 16-bit .wav, 24-bit .wav, .png, .jpg, .jpeg, .gif, .bmp, .webp
 
 Converting a 16bit wav produces an image in RGB565 mode
+Adds a custom header "img2wav " to wav files which specifies image resolution (this might get removed if file is modified)
+
 
 ### Dependencies
 [Hound](https://crates.io/crates/hound)
