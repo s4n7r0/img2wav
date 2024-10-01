@@ -409,42 +409,32 @@ fn img_to_wav(img: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, path: &String, a
     //writes a custom header where it specifes picture resolution 
     //looks bad maybe make it better in the future?
     let mut cursor = 0x04;
-    let mut riff_size: [u8; 4] = [0, 0, 0, 0];
-    riff_size[0] = *wav_buf.get(cursor).unwrap(); cursor += 1; 
-    riff_size[1] = *wav_buf.get(cursor).unwrap(); cursor += 1; 
-    riff_size[2] = *wav_buf.get(cursor).unwrap(); cursor += 1; 
-    riff_size[3] = *wav_buf.get(cursor).unwrap();
-    let mut riff_size: u32 = u32::from_ne_bytes(riff_size);
-    riff_size += 16;
 
-    let riff_size: [u8; 4] = riff_size.to_ne_bytes();
+    let mut new_riff_size: [u8; 4] = [0, 0, 0, 0];
+    new_riff_size[0] = *wav_buf.get(cursor).unwrap(); cursor += 1; 
+    new_riff_size[1] = *wav_buf.get(cursor).unwrap(); cursor += 1; 
+    new_riff_size[2] = *wav_buf.get(cursor).unwrap(); cursor += 1; 
+    new_riff_size[3] = *wav_buf.get(cursor).unwrap();
+    let new_riff_size: [u8; 4] = (u32::from_ne_bytes(new_riff_size) + 16).to_ne_bytes();
+
     let mut old_riff_size: [u8; 4] = [0, 0, 0, 0];
 
     cursor = 0x04;
-    old_riff_size[0] = std::mem::replace(&mut wav_buf[cursor], riff_size[0]); cursor += 1;
-    old_riff_size[1] = std::mem::replace(&mut wav_buf[cursor], riff_size[1]); cursor += 1;
-    old_riff_size[2] = std::mem::replace(&mut wav_buf[cursor], riff_size[2]); cursor += 1;
-    old_riff_size[3] = std::mem::replace(&mut wav_buf[cursor], riff_size[3]);
+    old_riff_size[0] = std::mem::replace(&mut wav_buf[cursor], new_riff_size[0]); cursor += 1;
+    old_riff_size[1] = std::mem::replace(&mut wav_buf[cursor], new_riff_size[1]); cursor += 1;
+    old_riff_size[2] = std::mem::replace(&mut wav_buf[cursor], new_riff_size[2]); cursor += 1;
+    old_riff_size[3] = std::mem::replace(&mut wav_buf[cursor], new_riff_size[3]);
 
-    println!("old riff size: {}, new riff size {}", u32::from_ne_bytes(old_riff_size), u32::from_ne_bytes(riff_size));
+    println!("old riff size: {}, new riff size {}", u32::from_ne_bytes(old_riff_size), u32::from_ne_bytes(new_riff_size));
 
-    let mut cursor = 0x3C;
-    wav_buf.insert(cursor, b'i'); cursor += 1;
-    wav_buf.insert(cursor, b'2'); cursor += 1;
-    wav_buf.insert(cursor, b'w'); cursor += 1;
-    wav_buf.insert(cursor, b' '); cursor += 1;
-    wav_buf.insert(cursor, 8); cursor += 1;
-    wav_buf.insert(cursor, 0); cursor += 1;
-    wav_buf.insert(cursor, 0); cursor += 1;
-    wav_buf.insert(cursor, 0); cursor += 1;
-    wav_buf.insert(cursor, img_x.to_ne_bytes()[0]); cursor += 1;
-    wav_buf.insert(cursor, img_x.to_ne_bytes()[1]); cursor += 1;
-    wav_buf.insert(cursor, img_x.to_ne_bytes()[2]); cursor += 1;
-    wav_buf.insert(cursor, img_x.to_ne_bytes()[3]); cursor += 1;
-    wav_buf.insert(cursor, img_y.to_ne_bytes()[0]); cursor += 1;
-    wav_buf.insert(cursor, img_y.to_ne_bytes()[1]); cursor += 1;
-    wav_buf.insert(cursor, img_y.to_ne_bytes()[2]); cursor += 1;
-    wav_buf.insert(cursor, img_y.to_ne_bytes()[3]);
+    let xb = img_x.to_ne_bytes();
+    let yb = img_y.to_ne_bytes();
+    let i2w_header = [b'i', b'2', b'w', b' ', 
+                      8, 0, 0, 0,
+                      xb[0], xb[1], xb[2], xb[3],
+                      yb[0], yb[1], yb[2], yb[3],];
+
+    wav_buf.splice(0x3c.., i2w_header.iter().cloned());
 
     let mut wav = File::create(path).expect("cant create file");
     wav.write_all(&wav_buf).expect("cant write");
@@ -470,6 +460,7 @@ struct Args {
     is_wav: bool,
     is_img: bool
 }
+
 fn main() {
 
     let mut args_struct = Args{
