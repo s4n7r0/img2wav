@@ -37,5 +37,6 @@ If converting from wav to image:
 If converting from image to wav
       -s, --stereo                          Outputs audio with 2 channels
       -g, --grayscale                       Interpretes image as if it was in Grayscale
+      -sr, --sample-rate                    Outputs audio in specified sample rate
       -16                                   Outputs audio in 16bit, assuming that image is in RGB565 mode
 ```
