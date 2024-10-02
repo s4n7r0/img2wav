@@ -328,11 +328,7 @@ fn img_to_wav(img: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, path: &String, a
     println!("{}", img_size);
 
     let wav = hound::WavSpec {
-<<<<<<< HEAD
         channels: 2 - args.mono as u16,
-=======
-        channels: 1 + args.stereo as u16,
->>>>>>> ac35ba4f6f71c2fd573d3ce0be42a5b68ad446f3
         sample_rate: args.samplerate,
         bits_per_sample: 24 - (8 * args.bit16 as u16),
         sample_format: hound::SampleFormat::Int
@@ -438,11 +434,7 @@ fn img_to_wav(img: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, path: &String, a
                       xb[0], xb[1], xb[2], xb[3],
                       yb[0], yb[1], yb[2], yb[3],];
 
-<<<<<<< HEAD
     wav_buf.splice(0x3c..0x3c, i2w_header.iter().cloned());
-=======
-    wav_buf.splice(0x3c.., i2w_header.iter().cloned());
->>>>>>> ac35ba4f6f71c2fd573d3ce0be42a5b68ad446f3
 
     let mut wav = File::create(path).expect("cant create file");
     wav.write_all(&wav_buf).expect("cant write");
