@@ -5,3 +5,5 @@
 /src/*.wav
 /src/*.bak
 /src/*.bmp
+/src/.vscode
+/src/preview.gif
