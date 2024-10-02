@@ -1,4 +1,4 @@
-use std::{env::args, fs::File, i16, i32, io::{Read, Write}, usize, vec};
+use std::{env::args, fs::{remove_file, File}, i16, i32, io::{Read, Write}, usize, vec};
 
 use hound::{self, WavReader};
 use image::{self, ImageReader};
@@ -33,14 +33,16 @@ fn show_help(path: &String) {
 fn process_path(args_struct: &mut Args, path: &String) -> bool {
 
     if File::open(path).is_err() {
-        println!("Failed to open file!"); 
+        println!("file doesn't exist!"); 
+
+        if args_struct.input.is_empty() {return false}; // so an empty input isnt created
+
         let file = File::options().write(true).open(path);
         if file.is_err() {
             if File::create_new(path).is_err() {println!("file can't be created or written to"); return false};
-            println!("file created");
+            println!("file created at {}", path);
         };
     };
-    
 
     if args_struct.input.is_empty() {
         match path.split('.').last().unwrap() {
@@ -50,7 +52,6 @@ fn process_path(args_struct: &mut Args, path: &String) -> bool {
             _ => {println!("file not supported!"); return false;}
         }
     }
-
     
     println!("path: {}", path);
     true
@@ -233,26 +234,21 @@ fn wav_to_img(path: &String, args: &Args) {
     let mut sample_bytes: [u8; 4];
     let mut sample_array = Vec::<[u8; 4]>::new();
     
-    //TODO: depending on wav bit size, change how it converts between signed to unsigned numbers
     match wav.spec().bits_per_sample {
         16 => {
-            for sample in wav.samples::<i16>() {
-                let current_sample = sample.as_ref().unwrap();
-                let current_sample: i32 = *current_sample as i32;
-                let current_sample = current_sample - i16::MIN as i32; //unsigned 24 bit MIN
-                let current_sample = current_sample as u32;
-                sample_bytes = current_sample.to_ne_bytes();
-                sample_array.push(sample_bytes);
+                for sample in wav.samples::<i16>() {
+                    let current_sample = *sample.as_ref().unwrap() as i32;
+                    let current_sample = (current_sample - i16::MIN as i32) as u32; 
+                    sample_bytes = current_sample.to_ne_bytes();
+                    sample_array.push(sample_bytes);
 
-                assert_eq!(sample_bytes[2], 0);
-            }
+                    assert_eq!(sample_bytes[2], 0);
+                }
         }
         24 => {
                 for sample in wav.samples::<i32>() {
-                    let current_sample = sample.as_ref().unwrap();
-                    let current_sample: i64 = *current_sample as i64;
-                    let current_sample = current_sample - I24_MIN; //absolute value of unsigned 24 bit MIN
-                    let current_sample = current_sample as u32;
+                    let current_sample = *sample.as_ref().unwrap() as i64;
+                    let current_sample = (current_sample - I24_MIN) as u32; 
                     sample_bytes = current_sample.to_ne_bytes();
                     sample_array.push(sample_bytes);
 
@@ -395,7 +391,7 @@ fn img_to_wav(img: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, path: &String, a
         for pixel in &pixel_array {
             let sample_to_write = u32::from_ne_bytes(*pixel); //returns a 24 bit number
             let sample_to_write: i64 = sample_to_write as i64 + I24_MIN; //turn it into a value between 24bit integer MIN and MAX 
-            let sample_to_write: i32 = sample_to_write as i32; //back again
+            let sample_to_write = sample_to_write as i32; //back again
             wav.write_sample(sample_to_write).expect("Cant write sample");
         }
     }
@@ -461,6 +457,10 @@ struct Args {
     is_img: bool
 }
 
+fn file_is_img(path: &String) -> bool {
+    ImageReader::open(path).unwrap().format().is_none()
+}
+
 fn main() {
 
     let mut args_struct = Args{
@@ -478,17 +478,25 @@ fn main() {
 
     if !process_args(&mut args_struct) {return;};
 
-    if args_struct.input.is_empty() {println!("No input file provided"); return};
-    if args_struct.output.is_empty() {println!("No output file provided"); return};
+    let input: &String = &args_struct.input;
+    let output: &String = &args_struct.output;
 
+    if input.is_empty() {println!("No input file provided"); return};
+    if output.is_empty() {println!("No output file provided"); return};
+
+    if (input.contains(".wav") && output.contains(".wav")) || (file_is_img(input) && file_is_img(output)) {
+        remove_file(output).expect("Can't delete temporary output file!");
+        return
+    };
+    
     //might be an unnecessary check
-    if args_struct.input == args_struct.output {println!("Input and output can't be the same file!"); return};
+    if input == output {println!("Input and output can't be the same file!"); return};
 
     if args_struct.is_img {
-        let img = ImageReader::open(&args_struct.input).expect("Cant open file").decode().unwrap().to_rgb8();
-        img_to_wav(img, &args_struct.output, &args_struct);
+        let img = ImageReader::open(&input).expect("Cant open file").decode().unwrap().to_rgb8();
+        img_to_wav(img, &output, &args_struct);
     } else if args_struct.is_wav {
-        wav_to_img(&args_struct.input.to_string(), &args_struct);
+        wav_to_img(&input.to_string(), &args_struct);
     } else {
         println!("File is not an image nor a wave file?");
         return
