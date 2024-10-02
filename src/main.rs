@@ -237,7 +237,7 @@ fn wav_to_img(path: &String, args: &Args) {
     match wav.spec().bits_per_sample {
         16 => {
                 for sample in wav.samples::<i16>() {
-                    let current_sample = *sample.as_ref().unwrap() as i32;
+                    let current_sample = sample.unwrap() as i32;
                     let current_sample = (current_sample - i16::MIN as i32) as u32; 
                     sample_bytes = current_sample.to_ne_bytes();
                     sample_array.push(sample_bytes);
@@ -247,7 +247,7 @@ fn wav_to_img(path: &String, args: &Args) {
         }
         24 => {
                 for sample in wav.samples::<i32>() {
-                    let current_sample = *sample.as_ref().unwrap() as i64;
+                    let current_sample = sample.unwrap() as i64;
                     let current_sample = (current_sample - I24_MIN) as u32; 
                     sample_bytes = current_sample.to_ne_bytes();
                     sample_array.push(sample_bytes);
