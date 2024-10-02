@@ -12,7 +12,7 @@ fn show_help(path: &String) {
     println!("");
     println!("Supported formats: 16-bit .wav, 24-bit .wav, .png, .jpg, .jpeg, .gif, .bmp, .webp");
     println!("");
-    println!("Converting a 16bit wav produces an image ign RGB565 mode");
+    println!("Converting a 16bit wav produces an image in RGB565 mode");
     println!("");
     println!("Options:");
     println!("      -i, --input  [PATH]                   Input file");
