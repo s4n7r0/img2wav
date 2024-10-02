@@ -15,6 +15,8 @@ Adds a custom header "img2wav " to wav files which specifies image resolution (t
 [image](https://crates.io/crates/image)
 
 ### Building
+Requires Rust from https://www.rust-lang.org/
+
 ```
 git clone https://github.com/s4n7r0/img2wav/
 cd ./img2wav
